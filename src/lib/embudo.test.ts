@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { agrupar, anguloDe, calcularEmbudo, cambiosPaso, canalDe, fechaDelLead, leadsDe, mesDelLead, rangoRapido, textoPeriodo } from './embudo.ts';
+import { agrupar, anguloDe, pasosEfectivos, porEtapa, calcularEmbudo, cambiosPaso, canalDe, fechaDelLead, leadsDe, mesDelLead, rangoRapido, textoPeriodo } from './embudo.ts';
 import type { Cliente } from './tipos.ts';
 
 let n = 0;
@@ -147,5 +147,37 @@ describe('periodo del informe', () => {
     expect(rangoRapido('mes', '2026-11-22')).toEqual({ desde: '2026-11-01', hasta: '2026-11-22' });
     expect(rangoRapido('mesAnterior', '2026-11-22')).toEqual({ desde: '2026-10-01', hasta: '2026-10-31' });
     expect(rangoRapido('mesAnterior', '2026-01-10')).toEqual({ desde: '2025-12-01', hasta: '2025-12-31' });
+  });
+});
+
+describe('el embudo usa la etapa del tablero', () => {
+  // Así quedó la hoja real de Gladys después de clasificar a todos.
+  const leads = [
+    ...Array.from({ length: 17 }, () => lead({ etapa: 'Cita Agendada' })),
+    ...Array.from({ length: 10 }, () => lead({ etapa: 'Cita más adelante' })),
+    ...Array.from({ length: 8 }, () => lead({ etapa: 'Solo quiere información' })),
+    ...Array.from({ length: 5 }, () => lead({ etapa: 'No le interesa' })),
+  ];
+
+  it('cuenta respuestas y citas según la etapa', () => {
+    const [r, a, s] = calcularEmbudo(leads).pasos;
+    expect(r).toMatchObject({ base_total: 40, si: 40, pct: 100 });
+    expect(a).toMatchObject({ base_total: 40, si: 17, no: 13, pendiente: 10, pct: 43 });
+    expect(s).toMatchObject({ base_total: 17, si: 0, pendiente: 17 });
+  });
+
+  it('lo marcado a mano en el panel Embudo manda sobre la etapa', () => {
+    expect(pasosEfectivos(lead({ etapa: 'Cita Agendada', agendo: 'no' })).agendo).toBe('no');
+    expect(pasosEfectivos(lead({ etapa: 'Oferta Enviada' }))).toMatchObject({ respondio: 'si', agendo: 'si', asistio: 'si', oferta: 'verbal' });
+    expect(pasosEfectivos(lead({ etapa: 'Nuevo' }))).toMatchObject({ respondio: null, agendo: null });
+  });
+
+  it('resume cuántos hay en cada etapa', () => {
+    expect(porEtapa(leads, ['Nuevo', 'Cita Agendada', 'Cita más adelante', 'Solo quiere información', 'No le interesa'])).toEqual([
+      { etapa: 'Cita Agendada', total: 17 },
+      { etapa: 'Cita más adelante', total: 10 },
+      { etapa: 'Solo quiere información', total: 8 },
+      { etapa: 'No le interesa', total: 5 },
+    ]);
   });
 });
