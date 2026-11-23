@@ -24,13 +24,43 @@ export const PASOS: DefinicionPaso[] = [
 
 const ORDEN: Paso[] = ['respondio', 'agendo', 'asistio'];
 
+// Lo que dice la etapa del tablero sobre cada paso del embudo.
+const RESPONDIO_SI: Etapa[] = ['Contactado', 'Solo quiere información', 'Cita más adelante', 'Cita Agendada', 'Oferta Enviada', 'Cerrado', 'No le interesa'];
+const AGENDO_SI: Etapa[] = ['Cita Agendada', 'Oferta Enviada', 'Cerrado'];
+const AGENDO_NO: Etapa[] = ['Solo quiere información', 'No le interesa'];
+const ASISTIO_SI: Etapa[] = ['Oferta Enviada', 'Cerrado'];
+const OFERTA_SI: Etapa[] = ['Oferta Enviada', 'Cerrado'];
+
+/**
+ * Pasos del embudo de un lead. Lo marcado a mano en el panel "Embudo" manda;
+ * lo que falte se deduce de la etapa del tablero. Ej.: un cliente en
+ * "Cita Agendada" cuenta como que respondió y agendó; uno en "Solo quiere
+ * información" respondió pero no agendó.
+ */
+export function pasosEfectivos(c: Pick<Cliente, Paso | 'etapa'>): Pick<Cliente, Paso> {
+  const e = c.etapa;
+  const asistio = c.asistio ?? (ASISTIO_SI.includes(e) ? 'si' : null);
+  return {
+    respondio: c.respondio ?? (RESPONDIO_SI.includes(e) ? 'si' : null),
+    agendo: c.agendo ?? (AGENDO_SI.includes(e) ? 'si' : AGENDO_NO.includes(e) ? 'no' : null),
+    asistio,
+    seguimiento: c.seguimiento ?? (e === 'No le interesa' && asistio === 'si' ? 'no' : null),
+    oferta: c.oferta ?? (OFERTA_SI.includes(e) ? 'verbal' : null),
+  };
+}
+
 /** ¿El cliente cumplió el paso? (en oferta cuenta verbal o escrita) */
-export function cumplio(c: Pick<Cliente, Paso>, paso: Paso): boolean {
-  const v = c[paso];
+export function cumplio(c: Pick<Cliente, Paso | 'etapa'>, paso: Paso): boolean {
+  const v = pasosEfectivos(c)[paso];
   return paso === 'oferta' ? v === 'verbal' || v === 'escrita' : v === 'si';
 }
-export function descarto(c: Pick<Cliente, Paso>, paso: Paso): boolean {
-  return c[paso] === 'no';
+export function descarto(c: Pick<Cliente, Paso | 'etapa'>, paso: Paso): boolean {
+  return pasosEfectivos(c)[paso] === 'no';
+}
+
+/** Cuántos leads hay en cada etapa del tablero (en el orden del tablero). */
+export function porEtapa(leads: Cliente[], etapas: readonly Etapa[]): Array<{ etapa: Etapa; total: number }> {
+  return etapas.map((etapa) => ({ etapa, total: leads.filter((c) => c.etapa === etapa).length })).filter((x) => x.total > 0);
 }
 
 /**
@@ -55,7 +85,11 @@ export function cambiosPaso(
       cambios[`${p}_en`] = ahora;
     }
   }
-  const rango: Record<Etapa, number> = { Nuevo: 0, Contactado: 1, 'Cita Agendada': 2, 'Oferta Enviada': 3, Cerrado: 4 };
+  // "No le interesa" queda por debajo de todo: si luego avanza en el embudo, la tarjeta se mueve.
+  const rango: Record<Etapa, number> = {
+    'No le interesa': -1, Nuevo: 0, Contactado: 1, 'Solo quiere información': 1, 'Cita más adelante': 1,
+    'Cita Agendada': 2, 'Oferta Enviada': 3, Cerrado: 4,
+  };
   const objetivo: Etapa = paso === 'oferta' ? 'Oferta Enviada' : paso === 'respondio' ? 'Contactado' : 'Cita Agendada';
   if (rango[c.etapa] < rango[objetivo]) cambios.etapa = objetivo;
   return cambios as Partial<Cliente>;
