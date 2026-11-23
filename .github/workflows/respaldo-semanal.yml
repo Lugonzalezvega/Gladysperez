@@ -1,0 +1,51 @@
+name: Respaldo semanal
+
+# Exporta las tablas a CSV, las CIFRA con BACKUP_PASSWORD y las guarda como
+# artefacto (90 días). Se cifra porque en un repositorio público los
+# artefactos los puede descargar cualquier persona con cuenta de GitHub.
+on:
+  schedule:
+    - cron: '43 12 * * 0' # domingos 07:43 en Ecuador
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  respaldo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Exportar tablas a CSV
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          GLADYS_EMAIL: ${{ secrets.GLADYS_EMAIL }}
+          GLADYS_PASSWORD: ${{ secrets.GLADYS_PASSWORD }}
+        run: node --experimental-strip-types --no-warnings scripts/respaldo.ts
+
+      - name: Comprimir y cifrar
+        env:
+          BACKUP_PASSWORD: ${{ secrets.BACKUP_PASSWORD }}
+        run: |
+          if [ ${#BACKUP_PASSWORD} -lt 12 ]; then
+            echo "Falta el secreto BACKUP_PASSWORD (mínimo 12 caracteres). No se guarda nada sin cifrar."
+            rm -rf respaldo; exit 1
+          fi
+          fecha=$(date -u +%Y-%m-%d)
+          tar czf respaldo.tgz respaldo
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
+            -in respaldo.tgz -out "gladys-respaldo-$fecha.tgz.enc" -pass env:BACKUP_PASSWORD
+          rm -rf respaldo respaldo.tgz
+          echo "FECHA=$fecha" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gladys-respaldo-${{ env.FECHA }}
+          path: gladys-respaldo-*.tgz.enc
+          retention-days: 90

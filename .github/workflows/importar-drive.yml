@@ -1,0 +1,37 @@
+name: Importar desde Google Drive
+
+# Cada 5 minutos (lo más seguido que permite GitHub) descarga la(s) hoja(s) configuradas en Ajustes y hace
+# upsert por external_key. Si faltan los secretos GLADYS_EMAIL /
+# GLADYS_PASSWORD, termina sin hacer nada.
+# Nota: GitHub puede retrasar las ejecuciones programadas en horas pico.
+# Es gratis e ilimitado porque el repositorio es público.
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: importar-drive
+  cancel-in-progress: false
+
+jobs:
+  importar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Importar
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          GLADYS_EMAIL: ${{ secrets.GLADYS_EMAIL }}
+          GLADYS_PASSWORD: ${{ secrets.GLADYS_PASSWORD }}
+        run: node --experimental-strip-types --no-warnings scripts/importar-drive.ts
