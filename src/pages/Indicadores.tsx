@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { FileDown } from 'lucide-react';
 import { useTabla } from '../data/hooks.ts';
-import { agrupar, anguloDe, calcularEmbudo, canalDe, leadsDe, rangoRapido, textoPeriodo, type Embudo, type FilaGrupo, type FiltroEmbudo } from '../lib/embudo.ts';
+import { agrupar, anguloDe, calcularEmbudo, canalDe, leadsDe, porEtapa, rangoRapido, textoPeriodo, type Embudo, type FilaGrupo, type FiltroEmbudo } from '../lib/embudo.ts';
 import { hoyISO } from '../lib/texto.ts';
 import type { Cliente } from '../lib/tipos.ts';
 import { Titulo, Vacio } from '../components/ui.tsx';
-import { InformePdf } from '../components/InformePdf.tsx';
+import { ETAPAS } from '../lib/constantes.ts';
+import { crearInformePdf, nombreArchivo } from '../lib/informePdf.ts';
 
 const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)} %` : '—');
 
@@ -81,6 +82,7 @@ export interface DatosIndicadores {
   porPropiedad: FilaGrupo[];
   porCanal: FilaGrupo[];
   porAngulo: FilaGrupo[];
+  porEtapa: Array<{ etapa: string; total: number }>;
 }
 
 export function calcularIndicadores(clientes: Cliente[], filtro: FiltroEmbudo): DatosIndicadores {
@@ -88,6 +90,7 @@ export function calcularIndicadores(clientes: Cliente[], filtro: FiltroEmbudo): 
   return {
     leads,
     embudo: calcularEmbudo(leads),
+    porEtapa: porEtapa(leads, ETAPAS),
     porPropiedad: agrupar(leads, (c) => c.propiedad_interes || 'Sin propiedad'),
     porCanal: agrupar(leads, (c) => canalDe(c.fuente)),
     porAngulo: agrupar(
@@ -106,6 +109,53 @@ export function Indicadores() {
   const canales = useMemo(() => [...new Set(todos.map((c) => canalDe(c.fuente)))].sort(), [todos]);
   const d = useMemo(() => calcularIndicadores(clientes, filtro), [clientes, filtro]);
   const [r, a, s, , o] = d.embudo.pasos;
+
+  // El logo se carga antes para que el PDF se arme al instante al tocar el botón
+  // (el iPhone solo deja compartir si ocurre justo después del toque).
+  const logo = useRef<string>();
+  useEffect(() => {
+    fetch('./logo-gladys-perez.png')
+      .then((r) => r.blob())
+      .then(
+        (b) =>
+          new Promise<string>((ok) => {
+            const lector = new FileReader();
+            lector.onload = () => ok(String(lector.result));
+            lector.readAsDataURL(b);
+          }),
+      )
+      .then((u) => (logo.current = u))
+      .catch(() => undefined);
+  }, []);
+  const [aviso, setAviso] = useState('');
+
+  const descargarPdf = async () => {
+    setAviso('');
+    try {
+      const alcance = [filtro.propiedad, filtro.canal].filter(Boolean).join(' · ');
+      const doc = crearInformePdf({ ...d, periodo: textoPeriodo(filtro), alcance, logo: logo.current });
+      const nombre = nombreArchivo(filtro.desde, filtro.hasta);
+      const archivo = new File([doc.output('blob')], nombre, { type: 'application/pdf' });
+      if (navigator.canShare?.({ files: [archivo] })) {
+        try {
+          await navigator.share({ files: [archivo], title: 'Dashboard de leads' });
+          return;
+        } catch (e) {
+          if ((e as Error).name === 'AbortError') return; // cerró el menú de compartir
+        }
+      }
+      const url = URL.createObjectURL(archivo);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = nombre;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch {
+      setAviso('No se pudo generar el PDF. Inténtalo otra vez.');
+    }
+  };
 
   const kpis = [
     { titulo: 'Leads recibidos', valor: String(d.embudo.leads), detalle: textoPeriodo(filtro) },
@@ -129,16 +179,17 @@ export function Indicadores() {
 
   return (
     <>
-      <div className="space-y-4 print:hidden">
+      <div className="space-y-4">
         <Titulo
           accion={
-            <button className="btn-primario" onClick={() => window.print()} disabled={!d.embudo.leads}>
+            <button className="btn-primario" onClick={descargarPdf} disabled={!d.embudo.leads}>
               <FileDown className="h-5 w-5" /> Descargar PDF
             </button>
           }
         >
-          Embudo de leads
+          Dashboard
         </Titulo>
+        {aviso && <p className="text-sm text-rose-600">{aviso}</p>}
 
         <section className="tarjeta space-y-3">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -204,7 +255,7 @@ export function Indicadores() {
             </div>
 
             <section className="tarjeta">
-              <h2 className="mb-3 font-semibold">Embudo</h2>
+              <h2 className="mb-3 font-semibold">Embudo comercial</h2>
               <BarrasEmbudo e={d.embudo} />
               <p className="mt-3 flex flex-wrap gap-4 text-xs text-stone-500">
                 <span className="flex items-center gap-1.5"><i className="inline-block h-3 w-3 rounded-sm bg-valle-700" /> Sí</span>
@@ -212,8 +263,26 @@ export function Indicadores() {
                 <span className="flex items-center gap-1.5"><i className="inline-block h-3 w-3 rounded-sm bg-stone-400/60" /> Sin registrar</span>
               </p>
               <p className="mt-2 text-xs text-stone-500">
-                Para que el embudo avance, en <b>Clientes</b> abre “Embudo” en la tarjeta de cada lead y marca Sí o No en cada paso.
+                Cuenta según la etapa de cada cliente en el tablero (por ejemplo, “Cita Agendada” = respondió y agendó). Si marcas Sí o No en el panel
+                “Embudo” de un cliente, eso manda sobre la etapa.
               </p>
+            </section>
+
+            <section className="tarjeta">
+              <h2 className="mb-2 font-semibold">Leads por etapa</h2>
+              <ul className="space-y-1.5">
+                {d.porEtapa.map((x) => (
+                  <li key={x.etapa} className="flex items-center gap-3 text-sm">
+                    <span className="w-44 shrink-0">{x.etapa}</span>
+                    <span className="h-3 flex-1 overflow-hidden rounded bg-stone-200 dark:bg-stone-800">
+                      <span className="block h-full rounded bg-valle-700" style={{ width: `${(x.total / d.embudo.leads) * 100}%` }} />
+                    </span>
+                    <span className="w-16 text-right tabular-nums">
+                      <b>{x.total}</b> <span className="text-stone-500">{pct(x.total, d.embudo.leads)}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </section>
 
             <section className="tarjeta">
@@ -235,8 +304,6 @@ export function Indicadores() {
           </>
         )}
       </div>
-
-      <InformePdf datos={d} filtro={filtro} />
     </>
   );
 }
