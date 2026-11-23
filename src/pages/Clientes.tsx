@@ -173,6 +173,9 @@ const COLOR_ETAPA: Record<Etapa, string> = {
   Contactado: 'border-t-violet-500',
   'Cita Agendada': 'border-t-amber-500',
   'Oferta Enviada': 'border-t-orange-500',
+  'Solo quiere información': 'border-t-cyan-500',
+  'Cita más adelante': 'border-t-yellow-400',
+  'No le interesa': 'border-t-stone-500',
   Cerrado: 'border-t-emerald-600',
 };
 
@@ -236,7 +239,7 @@ export function Clientes() {
       </div>
 
       {/* Escritorio: Kanban con arrastrar y soltar */}
-      <div className="hidden gap-3 overflow-x-auto pb-4 md:grid md:grid-cols-5">
+      <div className="hidden gap-3 overflow-x-auto pb-4 md:flex">
         {ETAPAS.map((e) => (
           <section
             key={e}
@@ -247,7 +250,7 @@ export function Clientes() {
             }}
             onDragLeave={() => setSobre((s) => (s === e ? null : s))}
             onDrop={(ev) => soltar(ev, e)}
-            className={`min-h-[60vh] min-w-[220px] rounded-2xl border-t-4 bg-stone-200/60 p-2 dark:bg-stone-900/60 ${COLOR_ETAPA[e]} ${sobre === e ? 'ring-2 ring-valle-500' : ''}`}
+            className={`min-h-[60vh] w-[240px] shrink-0 rounded-2xl border-t-4 bg-stone-200/60 p-2 dark:bg-stone-900/60 ${COLOR_ETAPA[e]} ${sobre === e ? 'ring-2 ring-valle-500' : ''}`}
           >
             <h2 className="mb-2 flex justify-between px-1 text-sm font-semibold">
               {e} <span className="text-stone-500">{porEtapa(e).length}</span>
