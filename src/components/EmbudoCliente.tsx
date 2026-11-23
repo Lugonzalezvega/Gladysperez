@@ -1,5 +1,5 @@
 import { almacen } from '../data/store.ts';
-import { cambiosPaso, cumplio, PASOS, type Paso } from '../lib/embudo.ts';
+import { cambiosPaso, cumplio, PASOS, pasosEfectivos, type Paso } from '../lib/embudo.ts';
 import type { Cliente, Oferta, SiNo } from '../lib/tipos.ts';
 import { formatoFecha } from '../lib/texto.ts';
 
@@ -15,6 +15,7 @@ export function avanceEmbudo(c: Cliente): number {
 }
 
 export function EmbudoCliente({ c }: { c: Cliente }) {
+  const efectivo = pasosEfectivos(c);
   return (
     <div className="space-y-2">
       {PASOS.map((p) => {
@@ -23,15 +24,17 @@ export function EmbudoCliente({ c }: { c: Cliente }) {
             ? [['Verbal', 'verbal'], ['Escrita', 'escrita'], ['No', 'no']]
             : [['Sí', 'si'], ['No', 'no']];
         const fecha = c[`${p.clave}_en` as const];
+        const deducido = c[p.clave] == null && efectivo[p.clave] != null;
         return (
           <div key={p.clave}>
             <div className="mb-1 flex items-baseline justify-between gap-2 text-xs">
               <span className="font-medium text-stone-700 dark:text-stone-300">{p.pregunta}</span>
               {fecha && <span className="text-stone-500">{formatoFecha(fecha)}</span>}
+              {deducido && <span className="text-stone-500">según la etapa</span>}
             </div>
             <div className="flex gap-1.5" role="group" aria-label={p.pregunta}>
               {opciones.map(([texto, valor]) => {
-                const activo = c[p.clave] === valor;
+                const activo = efectivo[p.clave] === valor;
                 const color =
                   valor === 'no'
                     ? 'bg-rose-600 text-white border-rose-600'
@@ -42,7 +45,7 @@ export function EmbudoCliente({ c }: { c: Cliente }) {
                     type="button"
                     aria-pressed={activo}
                     onClick={() => marcar(c, p.clave, valor)}
-                    className={`min-h-[34px] flex-1 rounded-lg border text-sm font-medium transition ${
+                    className={`min-h-[34px] flex-1 rounded-lg border text-sm font-medium transition ${deducido && activo ? 'opacity-70 ' : ''}${
                       activo ? color : 'border-stone-300 bg-white text-stone-700 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-300'
                     }`}
                   >

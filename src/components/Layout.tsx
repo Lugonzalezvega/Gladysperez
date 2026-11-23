@@ -10,7 +10,7 @@ const SECCIONES = [
   { a: '/clientes', texto: 'Clientes', icono: Users },
   { a: '/matching', texto: 'Matching', icono: Sparkles },
   { a: '/agenda', texto: 'Agenda', icono: CalendarDays },
-  { a: '/embudo', texto: 'Embudo', icono: Filter },
+  { a: '/embudo', texto: 'Dashboard', icono: Filter },
   { a: '/ajustes', texto: 'Ajustes', icono: Settings, soloAdmin: true },
 ];
 
