@@ -217,6 +217,9 @@ export function aEstado(v: string): EstadoPropiedad {
 function aEtapa(v: string): Cliente['etapa'] | null {
   const s = sinTildes(v);
   if (!s) return null;
+  if (/no le interesa|no interesa|descart|perdid/.test(s)) return 'No le interesa';
+  if (/informacion|info\b/.test(s)) return 'Solo quiere información';
+  if (/mas adelante|despues|luego|futur/.test(s)) return 'Cita más adelante';
   if (/cerrad|ganad/.test(s)) return 'Cerrado';
   if (/oferta/.test(s)) return 'Oferta Enviada';
   if (/cita|agend|visita/.test(s)) return 'Cita Agendada';

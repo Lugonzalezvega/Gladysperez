@@ -9,7 +9,15 @@ export type Interes =
   | 'Busca Rentar Casa'
   | 'Busca Comprar Terreno'
   | 'Propietario/Consignador';
-export type Etapa = 'Nuevo' | 'Contactado' | 'Cita Agendada' | 'Oferta Enviada' | 'Cerrado';
+export type Etapa =
+  | 'Nuevo'
+  | 'Contactado'
+  | 'Solo quiere información'
+  | 'Cita más adelante'
+  | 'Cita Agendada'
+  | 'Oferta Enviada'
+  | 'Cerrado'
+  | 'No le interesa';
 export type Llamo = 'si' | 'no' | null;
 export type SiNo = 'si' | 'no' | null;
 export type Oferta = 'verbal' | 'escrita' | 'no' | null;

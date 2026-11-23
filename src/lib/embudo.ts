@@ -55,7 +55,11 @@ export function cambiosPaso(
       cambios[`${p}_en`] = ahora;
     }
   }
-  const rango: Record<Etapa, number> = { Nuevo: 0, Contactado: 1, 'Cita Agendada': 2, 'Oferta Enviada': 3, Cerrado: 4 };
+  // "No le interesa" queda por debajo de todo: si luego avanza en el embudo, la tarjeta se mueve.
+  const rango: Record<Etapa, number> = {
+    'No le interesa': -1, Nuevo: 0, Contactado: 1, 'Solo quiere información': 1, 'Cita más adelante': 1,
+    'Cita Agendada': 2, 'Oferta Enviada': 3, Cerrado: 4,
+  };
   const objetivo: Etapa = paso === 'oferta' ? 'Oferta Enviada' : paso === 'respondio' ? 'Contactado' : 'Cita Agendada';
   if (rango[c.etapa] < rango[objetivo]) cambios.etapa = objetivo;
   return cambios as Partial<Cliente>;

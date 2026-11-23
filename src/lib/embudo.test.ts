@@ -95,6 +95,13 @@ describe('marcar pasos', () => {
     });
     expect(cambiosPaso(lead({ etapa: 'Cerrado', respondio: 'si' }), 'respondio', 'si', ahora)).toEqual({ respondio: 'si', respondio_en: ahora });
   });
+  it('las etapas "Solo quiere información", "Cita más adelante" y "No le interesa" avanzan al agendar', () => {
+    for (const etapa of ['Solo quiere información', 'Cita más adelante', 'No le interesa'] as const) {
+      expect(cambiosPaso(lead({ etapa, respondio: 'si' }), 'agendo', 'si', ahora).etapa).toBe('Cita Agendada');
+    }
+    expect(cambiosPaso(lead({ etapa: 'No le interesa' }), 'respondio', 'si', ahora).etapa).toBe('Contactado');
+    expect(cambiosPaso(lead({ etapa: 'Solo quiere información' }), 'respondio', 'si', ahora).etapa).toBeUndefined();
+  });
   it('un "no" o borrar no toca otros pasos', () => {
     expect(cambiosPaso(lead({}), 'agendo', 'no', ahora)).toEqual({ agendo: 'no', agendo_en: ahora });
     expect(cambiosPaso(lead({ agendo: 'si' }), 'agendo', null, ahora)).toEqual({ agendo: null, agendo_en: null });
@@ -112,6 +119,10 @@ describe('fuente', () => {
   ])('%s', (f, canal, angulo) => {
     expect(canalDe(f)).toBe(canal);
     expect(anguloDe(f)).toBe(angulo);
+  });
+  it('tolera datos viejos sin fuente', () => {
+    expect(canalDe(undefined)).toBe('Sin fuente');
+    expect(anguloDe(null)).toBe('');
   });
   it('usa la fecha del formulario o la de alta', () => {
     expect(mesDelLead({ fecha_lead: '2026-10-31', created_at: '2026-11-22T00:00:00Z' })).toBe('2026-10');

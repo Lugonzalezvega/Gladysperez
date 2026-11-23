@@ -9,5 +9,14 @@ export const INTERESES: Interes[] = [
   'Busca Comprar Terreno',
   'Propietario/Consignador',
 ];
-export const ETAPAS: Etapa[] = ['Nuevo', 'Contactado', 'Cita Agendada', 'Oferta Enviada', 'Cerrado'];
+export const ETAPAS: Etapa[] = [
+  'Nuevo',
+  'Contactado',
+  'Solo quiere información',
+  'Cita más adelante',
+  'Cita Agendada',
+  'Oferta Enviada',
+  'Cerrado',
+  'No le interesa',
+];
 export const TIPOS_TAREA: TipoTarea[] = ['Llamada', 'Muestra de propiedad', 'Firma', 'Seguimiento'];
