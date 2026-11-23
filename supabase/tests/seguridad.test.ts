@@ -7,6 +7,7 @@ import { join } from 'node:path';
 
 const U1 = '11111111-1111-1111-1111-111111111111';
 const U2 = '22222222-2222-2222-2222-222222222222';
+const U3 = '33333333-3333-3333-3333-333333333333'; // colaboradora de U1
 const DIR = join(__dirname, '..', 'migrations');
 let db: PGlite;
 
@@ -33,7 +34,7 @@ beforeAll(async () => {
     grant usage on schema auth, public to anon, authenticated;
     grant execute on function auth.uid() to anon, authenticated;
     create publication supabase_realtime;
-    insert into auth.users values ('${U1}'), ('${U2}');`);
+    insert into auth.users values ('${U1}'), ('${U2}'), ('${U3}');`);
   const archivos = readdirSync(DIR).filter((f) => f.endsWith('.sql')).sort();
   for (let i = 0; i < 2; i++) for (const f of archivos) await db.exec(readFileSync(join(DIR, f), 'utf8')); // 2 veces: idempotentes
 }, 60_000);
@@ -92,5 +93,24 @@ describe('migraciones y seguridad (RLS)', () => {
       expect(await falla(`select * from ${t}`)).toBe(true);
     }
     expect((await db.query<{ v: number }>(`select public.ping() v`)).rows[0].v).toBe(1);
+  });
+
+  it('una colaboradora ve y edita los datos de la dueña; las demás cuentas siguen aisladas', async () => {
+    await db.exec(`reset role; insert into public.miembros (member_id, owner_id) values ('${U3}', '${U1}')`);
+    await como(U3);
+    expect((await db.query<{ c: string }>(`select public.mi_cuenta() c`)).rows[0].c).toBe(U1);
+    const deU1 = (await db.query(`select * from properties`)).rows.length;
+    expect(deU1).toBeGreaterThan(0);
+    const nueva = (await db.query<{ user_id: string }>(`insert into properties (direccion) values ('Cumbayá') returning user_id`)).rows[0];
+    expect(nueva.user_id).toBe(U1);
+    expect((await db.query(`update clients set notas = 'editado por colaboradora'`)).affectedRows).toBeGreaterThan(0);
+    expect(await falla(`insert into properties (user_id) values ($1)`, [U2])).toBe(true);
+    expect(await falla(`select * from miembros`)).toBe(true);
+
+    await como(U1);
+    expect((await db.query(`select * from properties`)).rows.length).toBe(deU1 + 1);
+    await como(U2);
+    expect((await db.query<{ c: string }>(`select public.mi_cuenta() c`)).rows[0].c).toBe(U2);
+    expect((await db.query(`select * from properties where user_id = $1`, [U1])).rows).toHaveLength(0);
   });
 });

@@ -20,7 +20,9 @@ export async function importarCsv(texto: string, userId: string): Promise<string
   // Antes de comparar, asegura que la copia local esté al día (evita pisar datos).
   if (navigator.onLine) await almacen.esperarPrimeraDescarga();
   const plan = await planificarImportacion(texto, {
-    userId,
+    // Se usa la cuenta dueña de los datos: así una colaboradora y el
+    // workflow de GitHub generan los mismos ids y no se duplica nada.
+    userId: almacen.cuenta() ?? userId,
     hoy: hoyISO(),
     clientesExistentes: almacen.todas('clients') as never,
     propiedadesExistentes: almacen.todas('properties') as never,

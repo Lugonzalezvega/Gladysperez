@@ -62,3 +62,23 @@
 .barra-inferior {
   padding-bottom: env(safe-area-inset-bottom);
 }
+
+/* Informe PDF (Embudo → Descargar PDF) */
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm 14mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+    color: #1c1917 !important;
+  }
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .informe-bloque {
+    break-inside: avoid;
+  }
+}

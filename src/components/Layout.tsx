@@ -1,5 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { CalendarDays, Cloud, CloudOff, Home, LayoutDashboard, Loader2, Settings, Sparkles, Users } from 'lucide-react';
+import { CalendarDays, Cloud, CloudOff, Filter, Home, LayoutDashboard, Loader2, LogOut, Settings, Sparkles, Users } from 'lucide-react';
+import { almacen } from '../data/store.ts';
+import { supabase } from '../data/supabase.ts';
 import { useSync } from '../data/hooks.ts';
 
 const SECCIONES = [
@@ -8,8 +10,16 @@ const SECCIONES = [
   { a: '/clientes', texto: 'Clientes', icono: Users },
   { a: '/matching', texto: 'Matching', icono: Sparkles },
   { a: '/agenda', texto: 'Agenda', icono: CalendarDays },
-  { a: '/ajustes', texto: 'Ajustes', icono: Settings },
+  { a: '/embudo', texto: 'Embudo', icono: Filter },
+  { a: '/ajustes', texto: 'Ajustes', icono: Settings, soloAdmin: true },
 ];
+
+async function salir() {
+  const s = almacen.estadoSync();
+  if (s.pendientes > 0 && !window.confirm(`Hay ${s.pendientes} cambios sin enviar. Si sales ahora se perderán. ¿Salir de todos modos?`)) return;
+  await almacen.detener(true);
+  await supabase?.auth.signOut();
+}
 
 export function IndicadorSync() {
   const s = useSync();
@@ -29,15 +39,16 @@ export function IndicadorSync() {
 
 export function Layout() {
   const s = useSync();
+  const secciones = SECCIONES.filter((x) => !x.soloAdmin || s.esAdmin);
   return (
     <div className="min-h-screen">
       {/* Barra superior (en escritorio incluye el menú) */}
-      <header className="sticky top-0 z-30 border-b border-stone-200 bg-white/90 backdrop-blur dark:border-stone-800 dark:bg-stone-950/90">
+      <header className="sticky top-0 z-30 print:hidden border-b border-stone-200 bg-white/90 backdrop-blur dark:border-stone-800 dark:bg-stone-950/90">
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
           <img src="./favicon.png" alt="" className="h-8 w-8 rounded-lg" />
-          <span className="text-lg font-bold text-valle-700 dark:text-valle-100">Gladys en el Valle</span>
+          <span className="text-lg font-bold text-valle-700 dark:text-valle-100">Gladys Pérez</span>
           <nav className="ml-6 hidden gap-1 md:flex" aria-label="Secciones">
-            {SECCIONES.map(({ a, texto, icono: Icono }) => (
+            {secciones.map(({ a, texto, icono: Icono }) => (
               <NavLink
                 key={a}
                 to={a}
@@ -53,8 +64,13 @@ export function Layout() {
               </NavLink>
             ))}
           </nav>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
             <IndicadorSync />
+            {!s.esAdmin && (
+              <button className="btn-secundario !min-h-[36px] !px-2.5" onClick={() => void salir()} aria-label="Cerrar sesión" title="Cerrar sesión">
+                <LogOut className="h-4 w-4" />
+              </button>
+            )}
           </div>
         </div>
         {s.error && s.estado !== 'sincronizado' && (
@@ -64,17 +80,17 @@ export function Layout() {
         )}
       </header>
 
-      <main className="pb-seguro mx-auto max-w-6xl px-3 pt-4 md:px-4 md:pb-10">
+      <main className="pb-seguro mx-auto max-w-6xl px-3 pt-4 md:px-4 md:pb-10 print:m-0 print:max-w-none print:p-0">
         <Outlet />
       </main>
 
       {/* Barra inferior en celular */}
       <nav
-        className="barra-inferior fixed inset-x-0 bottom-0 z-30 border-t border-stone-200 bg-white/95 backdrop-blur dark:border-stone-800 dark:bg-stone-950/95 md:hidden"
+        className="barra-inferior print:hidden fixed inset-x-0 bottom-0 z-30 border-t border-stone-200 bg-white/95 backdrop-blur dark:border-stone-800 dark:bg-stone-950/95 md:hidden"
         aria-label="Secciones"
       >
-        <div className="grid grid-cols-6">
-          {SECCIONES.map(({ a, texto, icono: Icono }) => (
+        <div className="grid" style={{ gridTemplateColumns: `repeat(${secciones.length}, minmax(0, 1fr))` }}>
+          {secciones.map(({ a, texto, icono: Icono }) => (
             <NavLink
               key={a}
               to={a}

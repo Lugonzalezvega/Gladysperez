@@ -11,6 +11,8 @@ export type Interes =
   | 'Propietario/Consignador';
 export type Etapa = 'Nuevo' | 'Contactado' | 'Cita Agendada' | 'Oferta Enviada' | 'Cerrado';
 export type Llamo = 'si' | 'no' | null;
+export type SiNo = 'si' | 'no' | null;
+export type Oferta = 'verbal' | 'escrita' | 'no' | null;
 export type TipoTarea = 'Llamada' | 'Muestra de propiedad' | 'Firma' | 'Seguimiento';
 
 export interface Base {
@@ -50,6 +52,21 @@ export interface Cliente extends Base {
   llamo_en: string | null;
   notas: string;
   external_key: string | null;
+  // Embudo de leads
+  propiedad_interes: string;
+  fuente: string;
+  fecha_lead: string | null; // YYYY-MM-DD
+  respondio: SiNo;
+  respondio_en: string | null;
+  agendo: SiNo;
+  agendo_en: string | null;
+  asistio: SiNo;
+  asistio_en: string | null;
+  seguimiento: SiNo;
+  seguimiento_en: string | null;
+  oferta: Oferta;
+  oferta_en: string | null;
+  oferta_monto: number | null;
 }
 
 export interface Tarea extends Base {

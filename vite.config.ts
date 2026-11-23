@@ -45,9 +45,9 @@ export default defineConfig({
       injectRegister: null,
       includeAssets: ['favicon.png', 'apple-touch-icon.png', 'logo-gladys-perez.png'],
       manifest: {
-        name: 'Gladys en el Valle',
-        short_name: 'Gladys',
-        description: 'CRM de casas y terrenos en venta y renta',
+        name: 'Gladys Pérez',
+        short_name: 'Gladys Pérez',
+        description: 'Gladys Pérez · Asesora inmobiliaria',
         lang: 'es',
         theme_color: '#1f4fa3',
         background_color: '#1f4fa3',

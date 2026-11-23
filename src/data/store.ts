@@ -20,6 +20,8 @@ export interface InfoSync {
   error: string | null;
   listo: boolean; // ya se cargó la base local
   primeraDescarga: boolean; // ya se bajaron datos del servidor al menos una vez
+  /** Administradora de la app: ve la pestaña Ajustes. */
+  esAdmin: boolean;
 }
 
 type Fila = FilasPorTabla[Tabla];
@@ -41,6 +43,8 @@ function esErrorDeDatos(e: { code?: string } | null): boolean {
 class Almacen {
   private db: BaseLocal | null = null;
   private userId: string | null = null;
+  /** Cuenta dueña de los datos: la propia o, si es colaboradora, la de Gladys. */
+  private cuentaId: string | null = null;
   private mapas: Mapas = { properties: new Map(), clients: new Map(), tasks: new Map(), settings: new Map() };
   private pendientes = new Map<string, PendienteSync>();
   private instantaneas = new Map<Tabla, unknown[]>();
@@ -57,6 +61,7 @@ class Almacen {
     error: null,
     listo: false,
     primeraDescarga: false,
+    esAdmin: false,
   };
 
   // ---------------------------------------------------------------
@@ -115,6 +120,8 @@ class Almacen {
     if (anterior && anterior !== userId) await this.vaciarLocal();
     await this.db.put('meta', userId, 'userId');
     this.userId = userId;
+    this.cuentaId = await this.resolverCuenta(userId);
+    this.info = { ...this.info, esAdmin: await this.resolverAdmin() };
 
     for (const t of TABLAS) {
       const filas = await this.db.getAll(t);
@@ -141,10 +148,56 @@ class Almacen {
     this.canal = null;
     if (borrarDatos) await this.vaciarLocal();
     this.userId = null;
+    this.cuentaId = null;
     this.mapas = { properties: new Map(), clients: new Map(), tasks: new Map(), settings: new Map() };
     this.pendientes.clear();
-    this.info = { ...this.info, listo: false, primeraDescarga: false, error: null };
+    this.info = { ...this.info, listo: false, primeraDescarga: false, error: null, esAdmin: false };
     this.avisar();
+  }
+
+  /**
+   * Pregunta al servidor de qué cuenta son los datos (función mi_cuenta()).
+   * Sin conexión usa la última respuesta guardada; si la función no existe
+   * (migración 0004 sin ejecutar), usa la propia cuenta.
+   */
+  private async resolverCuenta(userId: string): Promise<string> {
+    const guardada = (await this.db!.get('meta', 'cuentaId')) as string | undefined;
+    if (supabase && navigator.onLine) {
+      const { data, error } = await supabase.rpc('mi_cuenta');
+      if (!error && typeof data === 'string') {
+        if (guardada && guardada !== data) {
+          // Cambió la cuenta compartida: se descarta la copia local anterior.
+          for (const t of [...TABLAS, 'pendientes'] as const) await this.db!.clear(t);
+          for (const t of TABLAS) await this.db!.delete('meta', `desde:${t}`);
+        }
+        await this.db!.put('meta', data, 'cuentaId');
+        return data;
+      }
+    }
+    return guardada ?? userId;
+  }
+
+  /**
+   * ¿Es la administradora? Si la función soy_admin() aún no existe en la base
+   * (migración 0005 sin ejecutar), se considera administradora para no
+   * dejar a nadie sin acceso a Ajustes.
+   */
+  private async resolverAdmin(): Promise<boolean> {
+    const guardado = (await this.db!.get('meta', 'esAdmin')) as boolean | undefined;
+    if (supabase && navigator.onLine) {
+      const { data, error } = await supabase.rpc('soy_admin');
+      if (!error && typeof data === 'boolean') {
+        await this.db!.put('meta', data, 'esAdmin');
+        return data;
+      }
+      if (error && /soy_admin|function|404|PGRST202/i.test(`${error.message} ${error.code}`)) return guardado ?? true;
+    }
+    return guardado ?? true;
+  }
+
+  /** Id de la cuenta dueña de los datos (para los ids deterministas al importar). */
+  cuenta(): string | null {
+    return this.cuentaId;
   }
 
   private async vaciarLocal() {
@@ -177,7 +230,7 @@ class Almacen {
       ...actual,
       ...cambios,
       id,
-      user_id: this.userId,
+      user_id: this.cuentaId,
       updated_at: ahora,
     };
     if (tabla === 'properties') {
@@ -276,7 +329,7 @@ class Almacen {
     for (const tabla of TABLAS) {
       const deTabla = lista.filter((p) => p.tabla === tabla);
       if (!deTabla.length) continue;
-      const filas = deTabla.map((p) => ({ ...p.fila, user_id: this.userId }));
+      const filas = deTabla.map((p) => ({ ...p.fila, user_id: this.cuentaId }));
       const onConflict = tabla === 'settings' ? 'user_id' : 'id';
       const { data, error } = await supabase!.from(tabla).upsert(filas, { onConflict }).select();
       if (!error) {
@@ -286,7 +339,7 @@ class Almacen {
       if (!esErrorDeDatos(error)) throw error;
       // Algún registro es inválido: se envían uno por uno y se descartan solo los malos.
       for (const p of deTabla) {
-        const r = await supabase!.from(tabla).upsert({ ...p.fila, user_id: this.userId }, { onConflict }).select();
+        const r = await supabase!.from(tabla).upsert({ ...p.fila, user_id: this.cuentaId }, { onConflict }).select();
         if (!r.error) await this.confirmar(tabla, [p], (r.data ?? []) as Fila[]);
         else if (esErrorDeDatos(r.error)) {
           await this.quitarPendiente(p);
@@ -369,7 +422,7 @@ class Almacen {
     for (const tabla of TABLAS) {
       canal = canal.on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: tabla, filter: `user_id=eq.${this.userId}` },
+        { event: '*', schema: 'public', table: tabla, filter: `user_id=eq.${this.cuentaId}` },
         (payload) => {
           const fila = payload.new as Fila | undefined;
           if (fila && 'id' in fila) {

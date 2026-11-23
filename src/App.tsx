@@ -16,6 +16,7 @@ import { Clientes } from './pages/Clientes.tsx';
 import { Matching } from './pages/Matching.tsx';
 import { Agenda } from './pages/Agenda.tsx';
 import { Ajustes } from './pages/Ajustes.tsx';
+import { Indicadores } from './pages/Indicadores.tsx';
 
 function Cargando({ texto = 'Cargando…' }: { texto?: string }) {
   return (
@@ -68,7 +69,11 @@ export default function App() {
               <Route path="clientes" element={<Clientes />} />
               <Route path="matching" element={<Matching />} />
               <Route path="agenda" element={<Agenda />} />
-              <Route path="ajustes" element={<Ajustes userId={sesion.user.id} correo={sesion.user.email ?? ''} />} />
+              <Route path="embudo" element={<Indicadores />} />
+              <Route
+                path="ajustes"
+                element={sync.esAdmin ? <Ajustes userId={sesion.user.id} correo={sesion.user.email ?? ''} /> : <Navigate to="/" replace />}
+              />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>

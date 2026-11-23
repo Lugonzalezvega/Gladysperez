@@ -14,6 +14,9 @@ export function valoresPorDefecto(tabla: Tabla): Record<string, unknown> {
       return {
         nombre: '', telefono: '', interes: 'Busca Comprar Casa', presupuesto_max: null,
         ubicacion_deseada: '', etapa: 'Nuevo', llamo: null, llamo_en: null, notas: '', external_key: null,
+        propiedad_interes: '', fuente: '', fecha_lead: null, respondio: null, respondio_en: null,
+        agendo: null, agendo_en: null, asistio: null, asistio_en: null, seguimiento: null,
+        seguimiento_en: null, oferta: null, oferta_en: null, oferta_monto: null,
       };
     case 'tasks':
       return { tipo: 'Llamada', texto: '', fecha: hoyISO(), hora: null, hecha: false, llamo: null, client_id: null };

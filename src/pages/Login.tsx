@@ -24,7 +24,7 @@ export function Login() {
       <form onSubmit={entrar} className="tarjeta w-full max-w-sm space-y-4 p-6">
         <div className="text-center">
           <img src="./logo-gladys-perez.png" alt="Gladys Pérez, asesora inmobiliaria" className="mx-auto w-full rounded-2xl" />
-          <h1 className="mt-4 text-xl font-bold">Gladys en el Valle</h1>
+          <h1 className="mt-4 text-xl font-bold">Ingresa a tu cuenta</h1>
           <p className="text-stone-500">Casas y terrenos · Venta y renta</p>
         </div>
         <label className="block">

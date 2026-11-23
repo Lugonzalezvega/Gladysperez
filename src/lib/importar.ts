@@ -136,19 +136,40 @@ function nombrePropio(n: string): string {
 
 /** Resumen legible de las columnas extra de un formulario de leads. */
 function notasDeFormulario(o: Record<string, string>): string {
+  // Propiedad, fuente y fecha tienen columnas propias (indicadores del embudo).
   const partes: Array<[string, string | undefined]> = [
-    ['Propiedad', o.propiedad_interes],
-    ['Fuente', o.fuente],
     ['Compra', o.forma_compra],
     ['Visita', o.quiere_visita],
     ['Precio/zona le convienen', o.precio_conviene],
     ['Correo', o.correo],
-    ['Fecha del lead', o.fecha_lead],
   ];
   return partes
     .filter(([, v]) => v && v.trim())
     .map(([k, v]) => `${k}: ${v!.replace(/\s+-\s*\.?\s*/g, ' - ').trim()}`)
     .join('\n');
+}
+
+/** "Facebook - .Ángulo: Ubicación" -> "Facebook - Ángulo: Ubicación" */
+export function limpiarFuente(v: string | undefined): string {
+  return (v ?? '').replace(/\s+-\s*\.?\s*/g, ' - ').replace(/\s+/g, ' ').trim().slice(0, 300);
+}
+
+/**
+ * Fecha de la hoja a "YYYY-MM-DD": acepta 21/11/2026, 21/11/26, 21-11-2026,
+ * 2026-11-21 y con hora (21/11/2026 10:30:00). Si no se entiende, null.
+ */
+export function aFecha(v: string | undefined): string | null {
+  const t = (v ?? '').trim();
+  let a: number, m: number, d: number;
+  let r = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (r) [a, m, d] = [Number(r[1]), Number(r[2]), Number(r[3])];
+  else if ((r = t.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})/))) {
+    [d, m, a] = [Number(r[1]), Number(r[2]), Number(r[3])];
+    if (a < 100) a += 2000;
+  } else return null;
+  const f = new Date(Date.UTC(a, m - 1, d));
+  if (f.getUTCFullYear() !== a || f.getUTCMonth() !== m - 1 || f.getUTCDate() !== d) return null;
+  return `${a}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
 export type TipoHoja = 'clients' | 'properties' | 'desconocida';
@@ -236,7 +257,8 @@ export async function idDeterminista(semilla: string): Promise<string> {
 
 type CamposCliente = Pick<
   Cliente,
-  'nombre' | 'telefono' | 'interes' | 'presupuesto_max' | 'ubicacion_deseada' | 'notas' | 'external_key'
+  | 'nombre' | 'telefono' | 'interes' | 'presupuesto_max' | 'ubicacion_deseada' | 'notas' | 'external_key'
+  | 'propiedad_interes' | 'fuente' | 'fecha_lead'
 > & { etapa?: Cliente['etapa'] };
 type CamposPropiedad = Pick<
   Propiedad,
@@ -366,6 +388,9 @@ export async function planificarImportacion(csv: string, op: OpcionesPlan): Prom
         ubicacion_deseada: texto(o.ubicacion_deseada, 300),
         notas: [texto(o.notas, 3000), extra].filter(Boolean).join('\n').slice(0, 5000),
         external_key: clave,
+        propiedad_interes: texto(o.propiedad_interes, 300),
+        fuente: limpiarFuente(o.fuente),
+        fecha_lead: aFecha(o.fecha_lead),
       };
       const actual = porClave.get(clave) ?? porDerivada.get(derivada);
       if (actual) {

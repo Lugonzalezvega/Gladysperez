@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { leerCsv } from './csv.ts';
 import { aNumero } from './texto.ts';
 import { normalizarTelefono } from './telefono.ts';
-import { enlaceCsvDeSheets, idDeterminista, planificarImportacion } from './importar.ts';
+import { aFecha, enlaceCsvDeSheets, idDeterminista, planificarImportacion } from './importar.ts';
 import { enlaceWhatsApp } from './whatsapp.ts';
 import { urlHttpsSegura } from './seguridad.ts';
 
@@ -176,8 +176,13 @@ describe('plan de importación', () => {
     const [maria, juan] = plan.clientes.nuevos.map((n) => n.campos);
     expect(maria).toMatchObject({ nombre: 'María López', telefono: '593991234567', interes: 'Busca Comprar Terreno' });
     expect(juan).toMatchObject({ nombre: 'Juan Pérez', telefono: '593987654321', interes: 'Busca Comprar Casa' });
-    expect(maria.notas).toContain('Propiedad: Terreno Santa Rosa');
-    expect(maria.notas).toContain('Fuente: Facebook - Ángulo: Ubicación');
+    expect(maria).toMatchObject({
+      propiedad_interes: 'Terreno Santa Rosa',
+      fuente: 'Facebook - Ángulo: Ubicación',
+      fecha_lead: '2026-11-21',
+    });
+    expect(juan).toMatchObject({ propiedad_interes: 'Casa Tumbaco', fuente: 'Instagram - Ángulo: Jardín 75 m²', fecha_lead: '2026-11-20' });
+    expect(maria.notas).not.toContain('Propiedad:');
     expect(maria.notas).toContain('Compra: Contado');
     expect(maria.notas).toContain('Visita: Sí, esta semana');
     expect(maria.notas).toContain('Correo: maria@ejemplo.com');
@@ -202,6 +207,20 @@ describe('plan de importación', () => {
 
   it('genera UUID válidos', async () => {
     expect(await idDeterminista('x')).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-8[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  });
+});
+
+describe('fechas de la hoja', () => {
+  it.each([
+    ['21/11/2026', '2026-11-21'],
+    ['1/2/2026 10:30:00', '2026-02-01'],
+    ['21-11-26', '2026-11-21'],
+    ['2026-11-21T10:00', '2026-11-21'],
+    ['31/02/2026', null],
+    ['ayer', null],
+    ['', null],
+  ])('%s -> %s', (e, s) => {
+    expect(aFecha(e)).toBe(s);
   });
 });
 

@@ -9,19 +9,22 @@ import { normalizarTelefono, telefonoBonito } from '../lib/telefono.ts';
 import { enlaceWhatsApp, textoSeguimiento } from '../lib/whatsapp.ts';
 import type { Cliente, Etapa, Interes } from '../lib/tipos.ts';
 import { Aviso, BotonesLlamada, Campo, Modal, numeroDe, Titulo, Vacio } from '../components/ui.tsx';
+import { avanceEmbudo, EmbudoCliente } from '../components/EmbudoCliente.tsx';
+import { canalDe, cambiosPaso } from '../lib/embudo.ts';
 
-/** "Llamó" en un cliente Nuevo lo pasa a Contactado. */
+/** "Llamó" en un cliente Nuevo lo pasa a Contactado y cuenta como que respondió. */
 export function marcarLlamada(c: Cliente, v: 'si' | 'no') {
   return almacen.guardar('clients', {
     id: c.id,
     llamo: v,
     llamo_en: new Date().toISOString(),
     ...(v === 'si' && c.etapa === 'Nuevo' ? { etapa: 'Contactado' as Etapa } : {}),
+    ...(v === 'si' && c.respondio !== 'si' ? cambiosPaso(c, 'respondio', 'si') : {}),
   });
 }
 
-type Borrador = { id?: string; nombre: string; telefono: string; interes: Interes; presupuesto_max: string; ubicacion_deseada: string; etapa: Etapa; notas: string };
-const VACIO: Borrador = { nombre: '', telefono: '', interes: 'Busca Comprar Casa', presupuesto_max: '', ubicacion_deseada: '', etapa: 'Nuevo', notas: '' };
+type Borrador = { id?: string; nombre: string; telefono: string; interes: Interes; presupuesto_max: string; ubicacion_deseada: string; etapa: Etapa; notas: string; propiedad_interes: string; fuente: string };
+const VACIO: Borrador = { nombre: '', telefono: '', interes: 'Busca Comprar Casa', presupuesto_max: '', ubicacion_deseada: '', etapa: 'Nuevo', notas: '', propiedad_interes: '', fuente: '' };
 
 function FormularioCliente({ inicial, alTerminar }: { inicial: Borrador; alTerminar: () => void }) {
   const [b, setB] = useState(inicial);
@@ -43,6 +46,8 @@ function FormularioCliente({ inicial, alTerminar }: { inicial: Borrador; alTermi
       ubicacion_deseada: b.ubicacion_deseada.trim(),
       etapa: b.etapa,
       notas: b.notas.trim(),
+      propiedad_interes: b.propiedad_interes.trim(),
+      fuente: b.fuente.trim(),
     });
     if (nuevo) {
       await almacen.guardar('tasks', { tipo: 'Llamada', texto: `Llamar a ${c.nombre}`, fecha: hoyISO(), client_id: c.id });
@@ -76,6 +81,17 @@ function FormularioCliente({ inicial, alTerminar }: { inicial: Borrador; alTermi
       <Campo etiqueta="Ubicación deseada">
         <input className="campo" value={b.ubicacion_deseada} onChange={set('ubicacion_deseada')} placeholder="Tumbaco, Cumbayá…" />
       </Campo>
+      <div className="grid grid-cols-2 gap-3">
+        <Campo etiqueta="Propiedad por la que pregunta">
+          <input className="campo" value={b.propiedad_interes} onChange={set('propiedad_interes')} placeholder="Casa Tumbaco" />
+        </Campo>
+        <Campo etiqueta="¿De dónde vino?">
+          <input className="campo" list="fuentes" value={b.fuente} onChange={set('fuente')} placeholder="Facebook, Instagram…" />
+          <datalist id="fuentes">
+            {['Facebook', 'Instagram', 'TikTok', 'WhatsApp', 'Referido', 'Portal inmobiliario', 'Letrero'].map((f) => <option key={f} value={f} />)}
+          </datalist>
+        </Campo>
+      </div>
       <Campo etiqueta="Notas">
         <textarea className="campo" rows={3} value={b.notas} onChange={set('notas')} />
       </Campo>
@@ -109,7 +125,19 @@ function TarjetaCliente({ c, alEditar }: { c: Cliente; alEditar: () => void }) {
         {c.ubicacion_deseada ? ` · ${c.ubicacion_deseada}` : ''}
       </p>
       {c.telefono && <p className="text-xs text-stone-500">{telefonoBonito(c.telefono)}</p>}
+      {(c.propiedad_interes || c.fuente) && (
+        <p className="flex flex-wrap gap-1.5 text-xs">
+          {c.propiedad_interes && <span className="pill bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200">{c.propiedad_interes}</span>}
+          {c.fuente && <span className="pill bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200">{canalDe(c.fuente)}</span>}
+        </p>
+      )}
       <BotonesLlamada llamo={c.llamo} llamoEn={c.llamo_en} alMarcar={(v) => void marcarLlamada(c, v)} />
+      <details className="rounded-xl bg-stone-100 px-3 py-2 dark:bg-stone-800">
+        <summary className="cursor-pointer text-sm font-medium">Embudo · {avanceEmbudo(c)}/5 pasos</summary>
+        <div className="mt-2">
+          <EmbudoCliente c={c} />
+        </div>
+      </details>
       <div className="grid grid-cols-3 gap-2">
         <a className="btn-secundario !min-h-[38px] !px-2" href={c.telefono ? `tel:+${c.telefono}` : undefined} aria-label="Llamar" aria-disabled={!c.telefono}>
           <Phone className="h-4 w-4" />
@@ -176,6 +204,7 @@ export function Clientes() {
       id: c.id, nombre: c.nombre, telefono: c.telefono, interes: c.interes,
       presupuesto_max: c.presupuesto_max == null ? '' : String(c.presupuesto_max),
       ubicacion_deseada: c.ubicacion_deseada, etapa: c.etapa, notas: c.notas,
+      propiedad_interes: c.propiedad_interes ?? '', fuente: c.fuente ?? '',
     });
 
   return (

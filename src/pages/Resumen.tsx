@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { CalendarCheck, Handshake, TrendingUp, Wallet } from 'lucide-react';
-import { useAjustes, useTabla } from '../data/hooks.ts';
+import { useAjustes, useSync, useTabla } from '../data/hooks.ts';
 import { almacen } from '../data/store.ts';
 import { comision, resumirComisiones } from '../lib/comisiones.ts';
 import { ESTADOS } from '../lib/constantes.ts';
@@ -25,6 +25,7 @@ export function Resumen() {
   const tareas = useTabla('tasks');
   const clientes = useTabla('clients');
   const ajustes = useAjustes();
+  const { esAdmin } = useSync();
   const prob = ajustes?.probabilidad_cierre ?? 60;
   const r = useMemo(() => resumirComisiones(propiedades, prob), [propiedades, prob]);
   const hoy = hoyISO();
@@ -53,7 +54,9 @@ export function Resumen() {
               min={0}
               max={100}
               inputMode="numeric"
-              className="campo !w-20 !py-1 !text-sm"
+              className="campo !w-20 !py-1 !text-sm disabled:opacity-60"
+              disabled={!esAdmin}
+              title={esAdmin ? undefined : 'Solo la administradora cambia este valor'}
               value={prob}
               onChange={(e) => {
                 const v = Math.min(100, Math.max(0, Number(e.target.value) || 0));

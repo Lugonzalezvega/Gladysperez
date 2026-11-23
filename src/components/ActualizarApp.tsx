@@ -17,7 +17,7 @@ export function ActualizarApp() {
   return (
     <button
       onClick={() => void updateServiceWorker(true)}
-      className="fixed inset-x-3 top-3 z-50 mx-auto flex max-w-md items-center justify-center gap-2 rounded-2xl bg-amber-400 px-4 py-3 font-semibold text-amber-950 shadow-lg"
+      className="fixed inset-x-3 top-3 z-50 print:hidden mx-auto flex max-w-md items-center justify-center gap-2 rounded-2xl bg-amber-400 px-4 py-3 font-semibold text-amber-950 shadow-lg"
     >
       <RefreshCw className="h-5 w-5" aria-hidden />
       Hay una versión nueva, toca para actualizar

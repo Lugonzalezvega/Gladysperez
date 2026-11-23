@@ -1,4 +1,4 @@
-# Gladys en el Valle 🏡
+# Gladys Pérez · Asesora inmobiliaria 🏡
 
 CRM personal para **una sola vendedora** que maneja su propio inventario de **casas y terrenos en venta y renta**.
 Funciona como app instalada en el celular (PWA), también **sin internet**, y se sincroniza sola entre dispositivos.
@@ -28,6 +28,7 @@ Funciona como app instalada en el celular (PWA), también **sin internet**, y se
 | **Clientes** | Tablero (Kanban) con 5 etapas: Nuevo → Contactado → Cita Agendada → Oferta Enviada → Cerrado. En computadora se arrastran las tarjetas; en el celular hay pestañas y un selector de etapa. Cada tarjeta tiene **Llamó** / **No llamó** (guardan la fecha; "Llamó" en un cliente Nuevo lo pasa a Contactado). |
 | **Matching** | Eliges un cliente y aparecen al instante las propiedades **Disponibles** que le sirven (misma operación o "Venta y Renta", precio dentro del presupuesto, misma zona). También puedes escribir el filtro: `Casa en Venta < $250k`, `terreno Tumbaco hasta 80 mil`. |
 | **Agenda** | Tareas por tipo (Llamada, Muestra de propiedad, Firma, Seguimiento), fecha y hora, casilla de hecha y pendientes atrasadas. En las llamadas: **Llamó** la marca hecha; **No llamó** la deja pendiente. |
+| **Embudo** | Indicadores de leads: recibidos por propiedad, red y ángulo del anuncio; cuántos responden, agendan, asisten, quedan en seguimiento y hacen oferta (aunque sea verbal), con filtros por mes, propiedad y red. Botón **Descargar PDF** con un informe listo para presentar. Cada paso se marca en **Clientes → Embudo** (Sí / No). |
 | **WhatsApp** | Un toque abre WhatsApp con el mensaje listo: ficha de la propiedad, recordatorio de cita o seguimiento. |
 | **Ajustes** | Enlace de la hoja de Google Sheets, botón **Importar ahora**, botón **Importar CSV**, probabilidad de cierre, descarga de tus datos y cerrar sesión. |
 
@@ -163,6 +164,43 @@ Aparece el ícono azul con las letras **GP** (nombre "Gladys"). Ábrela desde ah
 - Botón **Importar CSV**: sube un archivo `.csv` exportado de Excel o Sheets (acepta `,` o `;`).
 
 > 🔒 Quien tenga el enlace de la hoja puede ver sus datos. No lo compartas. El acceso lo controla la persona dueña de la hoja.
+
+---
+
+## Colaboradoras (otro usuario que ve los mismos datos)
+
+Cada colaboradora entra con **su propio correo y contraseña** y ve y edita **los mismos datos de Gladys**.
+
+1. Ejecuta una vez en **SQL Editor** el archivo `supabase/migrations/20261122000004_colaboradoras.sql`.
+2. En **Authentication → Users → Add user → Create new user**, crea su cuenta (correo + contraseña, con *Auto Confirm User*).
+3. En **SQL Editor** ejecuta, cambiando los dos correos:
+   ```sql
+   insert into public.miembros (member_id, owner_id)
+   select m.id, o.id from auth.users m, auth.users o
+   where m.email = 'colaboradora@correo.com'   -- la cuenta nueva
+     and o.email = 'gladys@correo.com';        -- la cuenta de Gladys
+   ```
+4. Ver quiénes tienen acceso: `select u.email, m.created_at from public.miembros m join auth.users u on u.id = m.member_id;`
+5. Quitar el acceso: borra su usuario en **Authentication → Users** (o `delete from public.miembros where member_id = (select id from auth.users where email = 'colaboradora@correo.com');`).
+
+Si la colaboradora ya había entrado antes de ser agregada, al volver a abrir la app se descarga sola la información de Gladys.
+
+---
+
+## Administradora y embudo
+
+1. Ejecuta en **SQL Editor** `supabase/migrations/20261122000005_embudo_y_admin.sql` (después de la 0004).
+2. Crea el usuario de la administradora (Authentication → Users) y ejecuta, con los dos correos:
+   ```sql
+   insert into public.miembros (member_id, owner_id, rol)
+   select m.id, o.id, 'admin' from auth.users m, auth.users o
+   where m.email = 'admin@correo.com' and o.email = 'gladys@correo.com'
+   on conflict (member_id) do update set rol = 'admin', owner_id = excluded.owner_id;
+   ```
+3. Solo la administradora ve **Ajustes**. Gladys y las colaboradoras ven todo lo demás y tienen el botón de salir arriba.
+4. **Informe PDF:** Embudo → elige el periodo (Desde / Hasta, o los atajos Últimos 7 días, Este mes, Mes anterior) y, si quieres, propiedad y red → **Descargar PDF** → en el cuadro de impresión elige *Guardar como PDF*. En computadora, desmarca "Encabezados y pies de página" en *Más ajustes* para un acabado limpio.
+
+Notas: "Llamó" en un cliente cuenta como que respondió. Marcar un paso como "Sí" completa los anteriores y avanza la etapa del tablero. Los leads de propietarios/consignadores no cuentan en el embudo. El mes del lead es la fecha del formulario (o la de alta si no hay).
 
 ---
 
