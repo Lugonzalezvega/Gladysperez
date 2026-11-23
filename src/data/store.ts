@@ -31,6 +31,16 @@ const ESPERA_MIN = 2_000;
 const ESPERA_MAX = 300_000;
 const TAM_PAGINA = 1000;
 
+/** Fila con todas las columnas: las que falten toman su valor por defecto. */
+function completar<T extends Tabla>(tabla: T, fila: Record<string, unknown>): FilasPorTabla[T] {
+  const base = valoresPorDefecto(tabla);
+  const llena: Record<string, unknown> = { ...base };
+  for (const [k, v] of Object.entries(fila)) if (v !== undefined) llena[k] = v;
+  // Los textos nunca quedan en null (la base de datos tampoco lo permite).
+  for (const [k, v] of Object.entries(base)) if (typeof v === 'string' && llena[k] == null) llena[k] = v;
+  return soloColumnas(tabla, llena);
+}
+
 function ahoraISO(): string {
   return new Date().toISOString();
 }
@@ -124,7 +134,9 @@ class Almacen {
     this.info = { ...this.info, esAdmin: await this.resolverAdmin() };
 
     for (const t of TABLAS) {
-      const filas = await this.db.getAll(t);
+      // Las copias guardadas antes de una actualización pueden no tener
+      // columnas nuevas: se completan con sus valores por defecto.
+      const filas = (await this.db.getAll(t)).map((f) => completar(t, f as unknown as Record<string, unknown>));
       this.mapas[t] = new Map(filas.map((f) => [f.id, f])) as never;
     }
     for (const p of await this.db.getAll('pendientes')) this.pendientes.set(p.clave, p);
@@ -280,7 +292,7 @@ class Almacen {
         }
       }
     }
-    await this.ponerLocal(tabla, soloColumnas(tabla, fila as unknown as Record<string, unknown>));
+    await this.ponerLocal(tabla, completar(tabla, fila as unknown as Record<string, unknown>));
     return true;
   }
 
