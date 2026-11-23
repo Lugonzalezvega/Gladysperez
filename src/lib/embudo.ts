@@ -62,7 +62,8 @@ export function cambiosPaso(
 }
 
 /** Red de donde vino el lead: "Facebook - Ángulo: X" -> "Facebook". */
-export function canalDe(fuente: string): string {
+export function canalDe(fuente: string | null | undefined): string {
+  fuente = fuente ?? '';
   const s = sinTildes(fuente);
   if (!s) return 'Sin fuente';
   if (/marketplace/.test(s)) return 'Marketplace';
@@ -77,8 +78,8 @@ export function canalDe(fuente: string): string {
 }
 
 /** Ángulo del anuncio: "Facebook - Ángulo: Ubicación" -> "Ubicación". */
-export function anguloDe(fuente: string): string {
-  const m = fuente.match(/[áa]ngulo\s*:\s*(.+)$/i);
+export function anguloDe(fuente: string | null | undefined): string {
+  const m = (fuente ?? '').match(/[áa]ngulo\s*:\s*(.+)$/i);
   return m ? m[1].trim() : '';
 }
 
